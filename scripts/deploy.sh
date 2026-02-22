@@ -10,24 +10,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BUILD_DIR="build-release"
 BUILD_ENABLED=1
-BUILD_MODE="docker-linux-x64"
-DOCKER_PLATFORM="linux/amd64"
-DOCKER_OUT_DIR="dist"
-FORCE_BUILD=0
 
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/deploy.sh [--host [user@]server] [--install-dir DIR] [--no-build] [--native-build] [--force-build]
-  ./scripts/deploy.sh [--binary PATH] [--host [user@]server] [--install-dir DIR] [--no-build] [--native-build] [--force-build]
+  ./scripts/deploy.sh [--host [user@]server] [--install-dir DIR] [--no-build]
+  ./scripts/deploy.sh [--binary PATH] [--host [user@]server] [--install-dir DIR] [--no-build]
 
 Examples:
   ./scripts/deploy.sh
   ./scripts/deploy.sh --host root@mail01
   ./scripts/deploy.sh --host
   ./scripts/deploy.sh --binary ./build-release/imap-copy --host mail01
-  ./scripts/deploy.sh --native-build --host root@mail01
-  ./scripts/deploy.sh --force-build --host root@mail01
 USAGE
 }
 
@@ -70,14 +64,6 @@ while [[ $# -gt 0 ]]; do
       BUILD_ENABLED=0
       shift 1
       ;;
-    --native-build)
-      BUILD_MODE="native"
-      shift 1
-      ;;
-    --force-build)
-      FORCE_BUILD=1
-      shift 1
-      ;;
     -h|--help)
       usage
       exit 0
@@ -92,26 +78,12 @@ done
 
 if [[ -z "$BINARY" ]]; then
   if [[ "$BUILD_ENABLED" -eq 1 ]]; then
-    if [[ "$BUILD_MODE" == "docker-linux-x64" ]]; then
-      BINARY="$PROJECT_ROOT/$DOCKER_OUT_DIR/$NAME"
-      if [[ -x "$BINARY" && "$FORCE_BUILD" -eq 0 ]]; then
-        echo "Using existing Linux artifact: $BINARY"
-      else
-        echo "Building ${NAME} for ${DOCKER_PLATFORM} with Docker..."
-        "$PROJECT_ROOT/scripts/docker-linux-test.sh" \
-          --platform "$DOCKER_PLATFORM" \
-          --out-dir "$DOCKER_OUT_DIR" \
-          --no-run
-      fi
-    else
-      echo "Building ${NAME} (Release) ..."
-      cmake -S "$PROJECT_ROOT" -B "$PROJECT_ROOT/$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release "${cmake_compiler_args[@]}"
-      cmake --build "$PROJECT_ROOT/$BUILD_DIR" -j
-      BINARY="$PROJECT_ROOT/$BUILD_DIR/$NAME"
-    fi
+    echo "Building ${NAME} (Release) ..."
+    cmake -S "$PROJECT_ROOT" -B "$PROJECT_ROOT/$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release "${cmake_compiler_args[@]}"
+    cmake --build "$PROJECT_ROOT/$BUILD_DIR" -j
+    BINARY="$PROJECT_ROOT/$BUILD_DIR/$NAME"
   else
     for candidate in \
-      "$PROJECT_ROOT/dist/${NAME}" \
       "$PROJECT_ROOT/build-release/${NAME}" \
       "$PROJECT_ROOT/build/${NAME}" \
       "$PROJECT_ROOT/build/Release/${NAME}"

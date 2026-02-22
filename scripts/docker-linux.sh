@@ -13,13 +13,13 @@ RUN_CONTAINER=1
 usage() {
   cat <<'USAGE'
 Usage:
-  ./scripts/docker-linux-test.sh [--platform linux/amd64] [--out-dir dist] [--image-tag tag] [--no-run] [--run-arg ARG ...]
+  ./scripts/docker-linux.sh [--platform linux/amd64] [--out-dir dist] [--image-tag tag] [--no-run] [--run-arg ARG ...]
 
 Examples:
-  ./scripts/docker-linux-test.sh
-  ./scripts/docker-linux-test.sh --no-run
-  ./scripts/docker-linux-test.sh --platform linux/amd64 --image-tag imap-copy:test
-  ./scripts/docker-linux-test.sh --run-arg --config --run-arg /tmp/config.toml
+  ./scripts/docker-linux.sh
+  ./scripts/docker-linux.sh --no-run
+  ./scripts/docker-linux.sh --platform linux/amd64 --image-tag imap-copy:test
+  ./scripts/docker-linux.sh --run-arg --config --run-arg /tmp/config.toml
 USAGE
 }
 
