@@ -4,17 +4,18 @@
 
 High-level behavior:
 - Lists all UIDs in the source mailbox (`from`).
-- Builds a `Message-ID` set from the destination mailbox (`to`) for duplicate checks.
-- Copies messages that exist in source but not in destination.
+- Uses a local UID cache to skip already copied source messages.
+- Copies source messages that are not present in the cache.
 - If `--delete` is enabled, removes successfully copied messages from source.
 
 ## Features
 
 - TOML-based configuration
 - TLS IMAP support (`imaps://` / `imap://`)
-- Duplicate prevention via `Message-ID`
-- Parallel copy workers
-- Warning logs for `Seen` messages
+- Duplicate prevention via source UID cache (`$HOME/.cache/imap-copy/uids.cache`)
+- Cache lock file to prevent concurrent runs (`$HOME/.cache/imap-copy/uids.lock`)
+- Parallel copy workers (max 5)
+- Destination unseen enforcement after append
 - Linux-focused build/deploy scripts
 
 ## Requirements
@@ -88,6 +89,10 @@ Short flags:
 - `-d` => `--delete`
 - `-h` => `--help`
 
+Optional environment variables:
+- `IMAP_COPY_LOG_LEVEL=DEBUG` enables debug logs.
+- `IMAP_COPY_WORKERS=<n>` sets worker count, capped at `5`.
+
 ## Config lookup order
 
 If `--config` is not provided:
@@ -98,12 +103,12 @@ If `--config` is not provided:
 
 During execution, the tool logs:
 - Server / source / destination details
-- Destination scan progress
+- Cache path and current cache entry count
 - IMAP command context and connection details on errors
 
 Final summary includes:
 - Source total
-- Already in destination
+- Already in destination (cache skip count)
 - Copied
 - Deleted
 - Errors
@@ -111,9 +116,13 @@ Final summary includes:
 
 ## Important behavior notes
 
-- Duplicate checks are based on `Message-ID`.
-- IMAP `UID` is mailbox-local, so it is not used alone for cross-mailbox dedupe.
+- Duplicate checks are based on source UID cache.
+- Cache key is raw source UID (string form).
+- Cache file is global for this app path: `$HOME/.cache/imap-copy/uids.cache`.
+- If cache open/lock fails, the program exits with a fatal error.
 - Message copy downloads full raw RFC822 content (body + attachments).
+- After copy, destination message is forced to `UNSEEN` (with fallback retries).
+- Source side is only modified when `--delete` is enabled.
 
 ## Linux deploy
 
