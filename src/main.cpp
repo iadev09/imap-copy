@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
         std::cout << "\n[INFO] Transfer complete\n";
         std::cout << "[INFO] Source total messages: " << stats.source_total << "\n";
         std::cout << "[INFO] Already in destination: " << stats.already_exists << "\n";
-        std::cout << "[INFO] Messages without Message-ID: " << stats.no_message_id << "\n";
+        std::cout << "[INFO] Skipped (no Message-ID): " << stats.no_message_id << "\n";
         std::cout << "[INFO] Copied: " << stats.copied << "\n";
         std::cout << "[INFO] Deleted from source (--delete): " << stats.deleted << "\n";
         std::cout << "[INFO] Errors: " << stats.failed << "\n";

@@ -109,11 +109,12 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
             const std::string message_id = meta->message_id;
             if (message_id.empty()) {
                 std::cerr << "[WARN] UID=" << uid
-                          << " has no Message-ID. Copying without Message-ID dedupe"
+                          << " has no Message-ID. Skipping copy"
                           << " [from=\"" << (meta->from.empty() ? "-" : meta->from)
                           << "\", subject=\"" << (meta->subject.empty() ? "-" : meta->subject)
                           << "\", date=\"" << (meta->date.empty() ? "-" : meta->date) << "\"]\n";
                 no_message_id.fetch_add(1);
+                continue;
             }
 
             bool message_id_reserved = false;
