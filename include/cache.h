@@ -27,6 +27,7 @@ public:
     [[nodiscard]] const std::filesystem::path &cachePath() const;
 
 private:
+    std::string key_seed_;
     std::filesystem::path cache_path_;
     std::filesystem::path lock_path_;
     std::unordered_set<std::string> keys_;

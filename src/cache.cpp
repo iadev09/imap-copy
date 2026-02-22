@@ -7,10 +7,13 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <iomanip>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -33,9 +36,33 @@ std::string trim(const std::string &value) {
     return value.substr(first, last - first + 1);
 }
 
+uint64_t fnv1a64(const std::string &input) {
+    uint64_t hash = 1469598103934665603ULL;
+    for (unsigned char ch : input) {
+        hash ^= static_cast<uint64_t>(ch);
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+std::string toHex64(uint64_t value) {
+    std::ostringstream oss;
+    oss << std::hex << std::nouppercase << std::setfill('0') << std::setw(16) << value;
+    return oss.str();
+}
+
+bool isHashKey(const std::string &value) {
+    if (value.size() != 16) {
+        return false;
+    }
+    return std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+        return std::isxdigit(ch) != 0;
+    });
+}
+
 }  // namespace
 
-TransferCache::TransferCache(const AppConfig &) {
+TransferCache::TransferCache(const AppConfig &cfg) {
     const char *home = std::getenv("HOME");
     if (home == nullptr || *home == '\0') {
         throw std::runtime_error("HOME is not set. Cannot open cache directory.");
@@ -48,6 +75,8 @@ TransferCache::TransferCache(const AppConfig &) {
         throw std::runtime_error("Failed to create cache directory: " + base_dir.string() +
                                  " (" + ec.message() + ")");
     }
+
+    key_seed_ = cfg.from.user + "|" + cfg.to.user + "|";
 
     cache_path_ = base_dir / "uids.cache";
     lock_path_ = base_dir / "uids.lock";
@@ -72,8 +101,10 @@ TransferCache::TransferCache(const AppConfig &) {
     std::string line;
     while (std::getline(in, line)) {
         line = trim(line);
-        if (!line.empty()) {
+        if (isHashKey(line)) {
             keys_.insert(line);
+        } else if (!line.empty()) {
+            dirty_ = true;
         }
     }
 }
@@ -87,7 +118,7 @@ TransferCache::~TransferCache() {
 }
 
 std::string TransferCache::makeUidKey(const uint64_t source_uid) const {
-    return std::to_string(source_uid);
+    return toHex64(fnv1a64(key_seed_ + std::to_string(source_uid)));
 }
 
 bool TransferCache::contains(const std::string &key) const {
