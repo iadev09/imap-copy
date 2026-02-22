@@ -148,8 +148,15 @@ std::optional<MessageMeta> parseFetchMeta(const std::string &response) {
             const std::string prefix = toLower(t.substr(0, 11));
             if (prefix == "message-id:") {
                 meta.message_id = normalizedMessageId(t.substr(11));
-                break;
+                continue;
             }
+        }
+        if (t.size() >= 5 && toLower(t.substr(0, 5)) == "from:" && meta.from.empty()) {
+            meta.from = trim(t.substr(5));
+        } else if (t.size() >= 5 && toLower(t.substr(0, 5)) == "date:" && meta.date.empty()) {
+            meta.date = trim(t.substr(5));
+        } else if (t.size() >= 8 && toLower(t.substr(0, 8)) == "subject:" && meta.subject.empty()) {
+            meta.subject = trim(t.substr(8));
         }
     }
 
@@ -244,7 +251,9 @@ std::optional<MessageMeta> ImapClient::fetchMetaByUid(const MailboxConfig &accou
     try {
         const std::string response = runImapCommand(
                 account, folder,
-                "UID FETCH " + std::to_string(uid) + " (FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])", 30);
+                "UID FETCH " + std::to_string(uid) +
+                        " (FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM DATE SUBJECT)])",
+                30);
         return parseFetchMeta(response);
     } catch (const std::exception &ex) {
         std::cerr << "[WARN] UID=" << uid << " failed to read metadata: " << ex.what() << "\n";
