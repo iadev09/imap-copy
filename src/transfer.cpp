@@ -104,12 +104,12 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
                 }
             }
 
-            const std::string cache_key = cache.makeUidKey(uid);
+            const uint64_t cache_key = cache.makeUidKey(uid);
             if (cache.contains(cache_key)) {
                 already_exists.fetch_add(1);
                 if (debug_enabled) {
                     std::cerr << "[DEBUG] source_uid=" << uid
-                              << " skipped by cache key=" << cache_key << "\n";
+                              << " skipped by cache\n";
                 }
                 continue;
             }

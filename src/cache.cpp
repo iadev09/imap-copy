@@ -12,8 +12,8 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -60,6 +60,15 @@ bool isHashKey(const std::string &value) {
     });
 }
 
+uint64_t parseHex64(const std::string &value) {
+    size_t parsed = 0;
+    const uint64_t result = std::stoull(value, &parsed, 16);
+    if (parsed != value.size()) {
+        throw std::runtime_error("Invalid hash key length");
+    }
+    return result;
+}
+
 }  // namespace
 
 TransferCache::TransferCache(const AppConfig &cfg) {
@@ -102,7 +111,7 @@ TransferCache::TransferCache(const AppConfig &cfg) {
     while (std::getline(in, line)) {
         line = trim(line);
         if (isHashKey(line)) {
-            keys_.insert(line);
+            keys_.insert(parseHex64(line));
         } else if (!line.empty()) {
             dirty_ = true;
         }
@@ -117,16 +126,16 @@ TransferCache::~TransferCache() {
     }
 }
 
-std::string TransferCache::makeUidKey(const uint64_t source_uid) const {
-    return toHex64(fnv1a64(key_seed_ + std::to_string(source_uid)));
+uint64_t TransferCache::makeUidKey(const uint64_t source_uid) const {
+    return fnv1a64(key_seed_ + std::to_string(source_uid));
 }
 
-bool TransferCache::contains(const std::string &key) const {
+bool TransferCache::contains(const uint64_t key) const {
     std::scoped_lock lock(mutex_);
     return keys_.find(key) != keys_.end();
 }
 
-bool TransferCache::insert(const std::string &key) {
+bool TransferCache::insert(const uint64_t key) {
     std::scoped_lock lock(mutex_);
     const auto [_, inserted] = keys_.insert(key);
     if (inserted) {
@@ -136,7 +145,7 @@ bool TransferCache::insert(const std::string &key) {
 }
 
 void TransferCache::save() {
-    std::vector<std::string> snapshot;
+    std::vector<uint64_t> snapshot;
     {
         std::scoped_lock lock(mutex_);
         if (!dirty_) {
@@ -157,7 +166,7 @@ void TransferCache::save() {
         throw std::runtime_error("Failed to open cache temp file for write: " + tmp_path.string());
     }
     for (const auto &k : snapshot) {
-        out << k << '\n';
+        out << toHex64(k) << '\n';
     }
     out.flush();
     if (!out.good()) {
