@@ -1,0 +1,63 @@
+# Build outputs
+/build/
+/build-release/
+/build-*/
+/cmake-build-*/
+/dist/
+
+# CMake/Ninja generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+build.ninja
+.ninja_deps
+.ninja_log
+
+# CLion / JetBrains
+.idea/
+*.iml
+# VS Code
+.vscode/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+
+# Vim / Neovim
+*.swp
+*.swo
+*.swn
+*.un~
+Session.vim
+.netrwhist
+.nvimlog
+
+# Generic editor/backup files
+*~
+*.tmp
+*.temp
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+.directory
+
+# config file 
+imap-copy.toml
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs and runtime dumps
+*.log
+*.pid
+*.stackdump
+core

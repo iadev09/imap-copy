@@ -1,0 +1,15 @@
+[server]
+host = "imap.example.com"
+port = 993
+tls = true
+verify_tls = true
+
+[from]
+user = "from@example.com"
+password = "from-password"
+folder = "INBOX"
+
+[to]
+user = "to@example.com"
+password = "to-password"
+folder = "INBOX"
