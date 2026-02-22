@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(imap_copy)
+project(imap_copy LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,7 +13,8 @@ find_package(Threads REQUIRED)
 add_executable(imap_copy
         src/main.cpp
         src/config.cpp
-        src/imap_client.cpp
+        src/client.cpp
+        src/cache.cpp
         src/transfer.cpp
 )
 
@@ -39,7 +40,7 @@ if (CLANG_TIDY_EXE)
             --config-file=${CMAKE_SOURCE_DIR}/.clang-tidy
             ${CMAKE_SOURCE_DIR}/src/main.cpp
             ${CMAKE_SOURCE_DIR}/src/config.cpp
-            ${CMAKE_SOURCE_DIR}/src/imap_client.cpp
+            ${CMAKE_SOURCE_DIR}/src/client.cpp
             ${CMAKE_SOURCE_DIR}/src/transfer.cpp
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
             COMMENT "Running clang-tidy"

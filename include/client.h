@@ -6,7 +6,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "app_types.h"
+#include "types.h"
 
 namespace imap_copy
 {

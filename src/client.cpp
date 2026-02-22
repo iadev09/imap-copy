@@ -1,12 +1,15 @@
-#include "imap_client.h"
+#include "client.h"
 
 #include <curl/curl.h>
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 
 namespace imap_copy {
 namespace {
@@ -73,7 +76,29 @@ std::string normalizedMessageId(std::string message_id) {
     if (message_id.back() == '\r') {
         message_id.pop_back();
     }
-    return toLower(message_id);
+    return message_id;
+}
+
+bool isDebugLoggingEnabled() {
+    static const bool enabled = []() {
+        const char *value = std::getenv("IMAP_COPY_LOG_LEVEL");
+        if (value == nullptr || *value == '\0') {
+            return false;
+        }
+        const std::string lowered = toLower(trim(value));
+        return lowered == "debug" || lowered == "trace" || lowered == "1" || lowered == "true";
+    }();
+    return enabled;
+}
+
+std::string logPreview(const std::string &value, size_t max_len = 120) {
+    if (value.size() <= max_len) {
+        return value;
+    }
+    if (max_len < 4) {
+        return value.substr(0, max_len);
+    }
+    return value.substr(0, max_len - 3) + "...";
 }
 
 std::string baseUrl(const ServerConfig &server) {
@@ -254,7 +279,30 @@ std::optional<MessageMeta> ImapClient::fetchMetaByUid(const MailboxConfig &accou
                 "UID FETCH " + std::to_string(uid) +
                         " (FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM DATE SUBJECT)])",
                 30);
-        return parseFetchMeta(response);
+        MessageMeta meta = parseFetchMeta(response).value_or(MessageMeta{});
+        if (meta.message_id.empty()) {
+            // Fallback for servers that do not reliably return HEADER.FIELDS subset.
+            const std::string full_header_response =
+                    runImapCommand(account, folder,
+                                   "UID FETCH " + std::to_string(uid) + " (FLAGS BODY.PEEK[HEADER])", 30);
+            const MessageMeta fallback_meta = parseFetchMeta(full_header_response).value_or(MessageMeta{});
+
+            if (!fallback_meta.message_id.empty()) {
+                meta.message_id = fallback_meta.message_id;
+            }
+            if (meta.from.empty()) {
+                meta.from = fallback_meta.from;
+            }
+            if (meta.date.empty()) {
+                meta.date = fallback_meta.date;
+            }
+            if (meta.subject.empty()) {
+                meta.subject = fallback_meta.subject;
+            }
+            meta.seen = meta.seen || fallback_meta.seen;
+        }
+
+        return meta;
     } catch (const std::exception &ex) {
         std::cerr << "[WARN] UID=" << uid << " failed to read metadata: " << ex.what() << "\n";
         return std::nullopt;
@@ -352,22 +400,29 @@ bool ImapClient::clearSeenByMessageId(const MailboxConfig &account, const std::s
     }
 
     try {
-        const std::string search_command =
-                "UID SEARCH HEADER MESSAGE-ID \"" + escapeImapQuoted(message_id) + "\"";
-        const std::string search_response = runImapCommand(account, account.folder, search_command);
-        const std::vector<uint64_t> uids = parseSearchResult(search_response);
-        if (uids.empty()) {
-            return false;
-        }
+        const std::string search_command = "UID SEARCH HEADER MESSAGE-ID \"" + escapeImapQuoted(message_id) + "\"";
 
-        bool any_ok = false;
-        for (uint64_t uid : uids) {
-            const std::string store_command =
-                    "UID STORE " + std::to_string(uid) + " -FLAGS.SILENT (\\Seen)";
-            runImapCommand(account, account.folder, store_command);
-            any_ok = true;
+        // Some servers need a short delay before freshly appended mails become searchable by header.
+        for (int attempt = 0; attempt < 5; ++attempt) {
+            const std::string search_response = runImapCommand(account, account.folder, search_command);
+            const std::vector<uint64_t> uids = parseSearchResult(search_response);
+            if (uids.empty()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(120));
+                continue;
+            }
+
+            bool any_ok = false;
+            for (uint64_t uid : uids) {
+                const std::string store_command =
+                        "UID STORE " + std::to_string(uid) + " -FLAGS.SILENT (\\Seen)";
+                runImapCommand(account, account.folder, store_command);
+                any_ok = true;
+            }
+            if (any_ok) {
+                return true;
+            }
         }
-        return any_ok;
+        return false;
     } catch (const std::exception &ex) {
         std::cerr << "[WARN] Message-ID=" << message_id << " could not clear Seen flag: " << ex.what() << "\n";
         return false;
