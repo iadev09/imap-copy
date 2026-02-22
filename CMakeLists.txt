@@ -16,10 +16,15 @@ add_executable(imap_copy
         src/client.cpp
         src/cache.cpp
         src/transfer.cpp
+        include/types.h
+        include/config.h
+        include/client.h
+        include/cache.h
+        include/transfer.h
 )
 
 set_target_properties(imap_copy PROPERTIES OUTPUT_NAME "imap-copy")
-target_include_directories(imap_copy PRIVATE include)
+target_include_directories(imap_copy PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(imap_copy PRIVATE CURL::libcurl Threads::Threads)
 
 # Release-only optimizations.
@@ -39,10 +44,27 @@ endif ()
 
 find_program(CLANG_TIDY_EXE NAMES clang-tidy)
 if (CLANG_TIDY_EXE)
+    set(CLANG_TIDY_EXTRA_ARGS "")
+    if (APPLE)
+        execute_process(
+            COMMAND xcrun --show-sdk-path
+            OUTPUT_VARIABLE APPLE_SDKROOT
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+        if (APPLE_SDKROOT)
+            list(APPEND CLANG_TIDY_EXTRA_ARGS
+                -extra-arg=-isysroot
+                -extra-arg=${APPLE_SDKROOT}
+            )
+        endif ()
+    endif ()
+
     add_custom_target(clang-tidy
             COMMAND ${CLANG_TIDY_EXE}
             -p ${CMAKE_BINARY_DIR}
             --quiet
+            ${CLANG_TIDY_EXTRA_ARGS}
             --config-file=${CMAKE_SOURCE_DIR}/.clang-tidy
             ${CMAKE_SOURCE_DIR}/src/main.cpp
             ${CMAKE_SOURCE_DIR}/src/config.cpp

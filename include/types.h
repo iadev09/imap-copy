@@ -26,8 +26,10 @@ struct AppConfig {
 };
 
 struct CliOptions {
+    static constexpr size_t k_default_worker_count = 4;
     std::string config_path;
     bool delete_after_copy = false;
+    size_t worker_count = k_default_worker_count;
 };
 
 struct TransferStats {

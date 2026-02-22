@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
             ~CurlGlobalCleanupGuard() { curl_global_cleanup(); }
         } cleanup_guard;
 
-        const TransferStats stats = transferMessages(cfg, opts.delete_after_copy);
+        const TransferStats stats = transferMessages(cfg, opts.delete_after_copy, opts.worker_count);
         const auto end_time = std::chrono::steady_clock::now();
         const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
         const double elapsed_seconds = static_cast<double>(elapsed_ms) / 1000.0;

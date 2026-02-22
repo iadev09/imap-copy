@@ -131,6 +131,19 @@ int parseTomlInt(const std::string &raw) {
     }
 }
 
+size_t parseWorkerCount(const std::string &raw) {
+    try {
+        size_t used = 0;
+        const unsigned long parsed = std::stoul(raw, &used);
+        if (used != raw.size() || parsed == 0UL) {
+            throw std::runtime_error("workers parse");
+        }
+        return static_cast<size_t>(parsed);
+    } catch (...) {
+        throw std::runtime_error("--workers must be a positive integer");
+    }
+}
+
 void validateConfig(const AppConfig &cfg) {
     if (cfg.server.host.empty()) {
         throw std::runtime_error("[server].host is required");
@@ -221,11 +234,6 @@ AppConfig parseConfig(const std::string &path) {
     return cfg;
 }
 
-void printUsage(const char *argv0) {
-    std::cerr << "Usage: " << argv0 << " [--config <file.toml>] [--delete|-d]\n";
-    std::cerr << "Default config lookup: ./imap-copy.toml then $HOME/.local/imap-copy.toml\n";
-}
-
 CliOptions parseArgs(int argc, char **argv) {
     CliOptions opts;
 
@@ -238,6 +246,11 @@ CliOptions parseArgs(int argc, char **argv) {
             opts.config_path = argv[++i];
         } else if (arg == "--delete" || arg == "-d") {
             opts.delete_after_copy = true;
+        } else if (arg == "--workers" || arg == "-w") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--workers requires a numeric value");
+            }
+            opts.worker_count = parseWorkerCount(argv[++i]);
         } else if (arg == "--help" || arg == "-h") {
             printUsage(argv[0]);
             std::exit(0);
@@ -283,6 +296,13 @@ CliOptions parseArgs(int argc, char **argv) {
     }
 
     return opts;
+}
+
+void printUsage(const char *argv0) {
+    std::cerr << "Usage: " << argv0
+            << " [--config <file.toml>] [--delete|-d] [--workers|-w <count>]\n";
+    std::cerr << "Default config lookup: ./imap-copy.toml then $HOME/.local/imap-copy.toml\n";
+    std::cerr << "Default workers: " << CliOptions::k_default_worker_count << "\n";
 }
 
 }  // namespace imap_copy
