@@ -248,6 +248,8 @@ CliOptions parseArgs(int argc, char **argv) {
 
     if (opts.config_path.empty()) {
         namespace fs = std::filesystem;
+
+        // Search order: argv (--config) -> cwd -> HOME/.local
         const fs::path cwd_candidate = fs::current_path() / "imap-copy.toml";
         if (fs::exists(cwd_candidate) && fs::is_regular_file(cwd_candidate)) {
             opts.config_path = cwd_candidate.string();
@@ -263,8 +265,21 @@ CliOptions parseArgs(int argc, char **argv) {
     }
 
     if (opts.config_path.empty()) {
-        throw std::runtime_error(
-                "No config file found. Checked ./imap-copy.toml and $HOME/.local/imap-copy.toml");
+        namespace fs = std::filesystem;
+        const fs::path cwd_candidate = fs::current_path() / "imap-copy.toml";
+
+        std::string message = "No config file found. Search order: --config -> cwd -> HOME/.local. Checked: " +
+                              cwd_candidate.string();
+
+        const char *home = std::getenv("HOME");
+        if (home != nullptr && *home != '\0') {
+            const fs::path home_candidate = fs::path(home) / ".local" / "imap-copy.toml";
+            message += ", " + home_candidate.string();
+        } else {
+            message += ", HOME is not set";
+        }
+
+        throw std::runtime_error(message);
     }
 
     return opts;

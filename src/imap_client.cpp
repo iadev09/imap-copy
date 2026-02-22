@@ -168,12 +168,38 @@ std::string escapeImapQuoted(const std::string &value) {
     return out;
 }
 
+std::string curlConnectionInfo(CURL *curl) {
+    const char *primary_ip = nullptr;
+    long primary_port = 0;
+    const char *local_ip = nullptr;
+    long local_port = 0;
+
+    std::ostringstream out;
+
+    if (curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP, &primary_ip) == CURLE_OK && primary_ip != nullptr &&
+        *primary_ip != '\0') {
+        out << " peer_ip=" << primary_ip;
+    }
+    if (curl_easy_getinfo(curl, CURLINFO_PRIMARY_PORT, &primary_port) == CURLE_OK && primary_port > 0) {
+        out << " peer_port=" << primary_port;
+    }
+    if (curl_easy_getinfo(curl, CURLINFO_LOCAL_IP, &local_ip) == CURLE_OK && local_ip != nullptr &&
+        *local_ip != '\0') {
+        out << " local_ip=" << local_ip;
+    }
+    if (curl_easy_getinfo(curl, CURLINFO_LOCAL_PORT, &local_port) == CURLE_OK && local_port > 0) {
+        out << " local_port=" << local_port;
+    }
+
+    return out.str();
+}
+
 }  // namespace
 
 ImapClient::ImapClient(ServerConfig server) : server_(std::move(server)) {}
 
 std::string ImapClient::runImapCommand(const MailboxConfig &account, const std::string &folder,
-                                       const std::string &command) const {
+                                       const std::string &command, long timeout_seconds) const {
     CURL *curl = curl_easy_init();
     if (curl == nullptr) {
         throw std::runtime_error("curl init error");
@@ -183,6 +209,9 @@ std::string ImapClient::runImapCommand(const MailboxConfig &account, const std::
     const std::string url = mailboxUrl(server_, folder);
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     configureCommonImap(curl, server_, account);
+    if (timeout_seconds > 0) {
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout_seconds);
+    }
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, command.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToString);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
@@ -190,8 +219,15 @@ std::string ImapClient::runImapCommand(const MailboxConfig &account, const std::
     const CURLcode rc = curl_easy_perform(curl);
     if (rc != CURLE_OK) {
         const std::string err = curl_easy_strerror(rc);
+        const std::string connection_info = curlConnectionInfo(curl);
         curl_easy_cleanup(curl);
-        throw std::runtime_error("IMAP command failed: " + command + " (" + err + ")");
+        throw std::runtime_error(
+                "IMAP command failed"
+                " [host=" + server_.host +
+                ", user=" + account.user +
+                ", folder=" + folder +
+                ", command=\"" + command + "\"]"
+                " (timeout_s=" + std::to_string(timeout_seconds) + ", " + err + ")" + connection_info);
     }
 
     curl_easy_cleanup(curl);
@@ -199,7 +235,7 @@ std::string ImapClient::runImapCommand(const MailboxConfig &account, const std::
 }
 
 std::vector<uint64_t> ImapClient::listAllUids(const MailboxConfig &account, const std::string &folder) const {
-    const std::string response = runImapCommand(account, folder, "UID SEARCH ALL");
+    const std::string response = runImapCommand(account, folder, "UID SEARCH ALL", 120);
     return parseSearchResult(response);
 }
 
@@ -208,7 +244,7 @@ std::optional<MessageMeta> ImapClient::fetchMetaByUid(const MailboxConfig &accou
     try {
         const std::string response = runImapCommand(
                 account, folder,
-                "UID FETCH " + std::to_string(uid) + " (FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])");
+                "UID FETCH " + std::to_string(uid) + " (FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])", 30);
         return parseFetchMeta(response);
     } catch (const std::exception &ex) {
         std::cerr << "[WARN] UID=" << uid << " failed to read metadata: " << ex.what() << "\n";
@@ -233,8 +269,10 @@ std::vector<char> ImapClient::downloadMessageByUid(const MailboxConfig &account,
     const CURLcode rc = curl_easy_perform(curl);
     if (rc != CURLE_OK) {
         const std::string err = curl_easy_strerror(rc);
+        const std::string connection_info = curlConnectionInfo(curl);
         curl_easy_cleanup(curl);
-        throw std::runtime_error("Failed to download message UID=" + std::to_string(uid) + " (" + err + ")");
+        throw std::runtime_error("Failed to download message UID=" + std::to_string(uid) + " (" + err + ")" +
+                                 connection_info);
     }
 
     curl_easy_cleanup(curl);
@@ -264,7 +302,8 @@ bool ImapClient::appendMessage(const MailboxConfig &account, const std::string &
 
     const CURLcode rc = curl_easy_perform(curl);
     if (rc != CURLE_OK) {
-        std::cerr << "[ERROR] APPEND failed: " << curl_easy_strerror(rc) << "\n";
+        const std::string connection_info = curlConnectionInfo(curl);
+        std::cerr << "[ERROR] APPEND failed: " << curl_easy_strerror(rc) << connection_info << "\n";
         curl_easy_cleanup(curl);
         return false;
     }
@@ -283,6 +322,45 @@ bool ImapClient::deleteSourceMessage(const MailboxConfig &source, uint64_t uid) 
         std::cerr << "[WARN] UID=" << uid
                   << " was copied but could not be deleted from source (UID EXPUNGE may not be supported): "
                   << ex.what() << "\n";
+        return false;
+    }
+}
+
+bool ImapClient::clearSeenByUid(const MailboxConfig &account, uint64_t uid) const {
+    try {
+        runImapCommand(account, account.folder,
+                       "UID STORE " + std::to_string(uid) + " -FLAGS.SILENT (\\Seen)");
+        return true;
+    } catch (const std::exception &ex) {
+        std::cerr << "[WARN] UID=" << uid << " could not clear Seen flag: " << ex.what() << "\n";
+        return false;
+    }
+}
+
+bool ImapClient::clearSeenByMessageId(const MailboxConfig &account, const std::string &message_id) const {
+    if (message_id.empty()) {
+        return false;
+    }
+
+    try {
+        const std::string search_command =
+                "UID SEARCH HEADER MESSAGE-ID \"" + escapeImapQuoted(message_id) + "\"";
+        const std::string search_response = runImapCommand(account, account.folder, search_command);
+        const std::vector<uint64_t> uids = parseSearchResult(search_response);
+        if (uids.empty()) {
+            return false;
+        }
+
+        bool any_ok = false;
+        for (uint64_t uid : uids) {
+            const std::string store_command =
+                    "UID STORE " + std::to_string(uid) + " -FLAGS.SILENT (\\Seen)";
+            runImapCommand(account, account.folder, store_command);
+            any_ok = true;
+        }
+        return any_ok;
+    } catch (const std::exception &ex) {
+        std::cerr << "[WARN] Message-ID=" << message_id << " could not clear Seen flag: " << ex.what() << "\n";
         return false;
     }
 }

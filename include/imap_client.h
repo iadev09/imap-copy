@@ -21,6 +21,8 @@ namespace imap_copy
         std::vector<char> downloadMessageByUid(const MailboxConfig &account, const std::string &folder, uint64_t uid) const;
         bool appendMessage(const MailboxConfig &account, const std::string &folder, const std::vector<char> &message) const;
         bool deleteSourceMessage(const MailboxConfig &source, uint64_t uid) const;
+        bool clearSeenByUid(const MailboxConfig &account, uint64_t uid) const;
+        bool clearSeenByMessageId(const MailboxConfig &account, const std::string &message_id) const;
 
         bool destinationHasMessageId(const MailboxConfig &dest,
                                      const std::unordered_set<std::string> &known_ids,
@@ -30,7 +32,8 @@ namespace imap_copy
         ServerConfig server_;
 
         std::string runImapCommand(const MailboxConfig &account, const std::string &folder,
-                                   const std::string &command) const;
+                                   const std::string &command,
+                                   long timeout_seconds = 300) const;
     };
 
 } // namespace imap_copy

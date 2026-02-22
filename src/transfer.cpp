@@ -15,19 +15,39 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
     TransferStats stats;
     ImapClient bootstrap_client(cfg.server);
 
+    std::cout << "[INFO] Server: " << cfg.server.host << ":" << cfg.server.port
+              << " tls=" << (cfg.server.tls ? "true" : "false")
+              << " verify_tls=" << (cfg.server.verify_tls ? "true" : "false") << "\n";
+    std::cout << "[INFO] From: user=" << cfg.from.user << " folder=" << cfg.from.folder << "\n";
+    std::cout << "[INFO] To: user=" << cfg.to.user << " folder=" << cfg.to.folder << "\n";
+
     std::cout << "[INFO] Reading source UID list...\n";
     const std::vector<uint64_t> source_uids = bootstrap_client.listAllUids(cfg.from, cfg.from.folder);
     stats.source_total = source_uids.size();
+    std::cout << "[INFO] Source messages found: " << stats.source_total << "\n";
+
+    std::cout << "[INFO] Reading destination UID list...\n";
+    const std::vector<uint64_t> dest_uids = bootstrap_client.listAllUids(cfg.to, cfg.to.folder);
+    std::cout << "[INFO] Destination messages found: " << dest_uids.size() << "\n";
 
     std::cout << "[INFO] Building destination Message-ID set...\n";
     std::unordered_set<std::string> dest_message_ids;
-    const std::vector<uint64_t> dest_uids = bootstrap_client.listAllUids(cfg.to, cfg.to.folder);
     dest_message_ids.reserve(dest_uids.size() * 2 + 1);
 
-    for (uint64_t uid : dest_uids) {
+    const size_t progress_step = std::max<size_t>(1, dest_uids.size() / 20);
+
+    for (size_t i = 0; i < dest_uids.size(); ++i) {
+        const uint64_t uid = dest_uids[i];
         const std::optional<MessageMeta> meta = bootstrap_client.fetchMetaByUid(cfg.to, cfg.to.folder, uid);
         if (meta.has_value() && !meta->message_id.empty()) {
             dest_message_ids.insert(meta->message_id);
+        }
+
+        const size_t done = i + 1;
+        if (done == dest_uids.size() || done % progress_step == 0) {
+            const size_t pct = dest_uids.empty() ? 100 : (done * 100) / dest_uids.size();
+            std::cout << "[INFO] Destination Message-ID scan: " << done << "/" << dest_uids.size() << " (" << pct
+                      << "%)\n";
         }
     }
 
@@ -101,6 +121,10 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
                 continue;
             }
 
+            if (!meta->seen) {
+                client.clearSeenByUid(cfg.from, uid);
+            }
+
             const bool append_ok = client.appendMessage(cfg.to, cfg.to.folder, raw_message);
             if (!append_ok) {
                 std::cerr << "[ERROR] UID=" << uid << " failed to append to destination\n";
@@ -115,6 +139,10 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
                 pending_message_ids.erase(message_id);
                 dest_message_ids.insert(message_id);
                 message_id_reserved = false;
+            }
+
+            if (!meta->seen && !message_id.empty()) {
+                client.clearSeenByMessageId(cfg.to, message_id);
             }
 
             if (delete_after_copy && client.deleteSourceMessage(cfg.from, uid)) {
