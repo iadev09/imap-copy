@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
+
+# Ensure GCC toolset 15 is available even in non-interactive shells (Linux).
+if [[ -f /opt/rh/gcc-toolset-15/enable ]]; then
+  # shellcheck disable=SC1091
+  source /opt/rh/gcc-toolset-15/enable
+fi
 
 NAME="imap-copy"
 INSTALL_DIR="/usr/local/bin"
@@ -80,7 +87,7 @@ if [[ -z "$BINARY" ]]; then
   if [[ "$BUILD_ENABLED" -eq 1 ]]; then
     echo "Building ${NAME} (Release) ..."
     cmake -S "$PROJECT_ROOT" -B "$PROJECT_ROOT/$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release "${cmake_compiler_args[@]}"
-    cmake --build "$PROJECT_ROOT/$BUILD_DIR" -j
+    cmake --build "$PROJECT_ROOT/$BUILD_DIR" --parallel
     BINARY="$PROJECT_ROOT/$BUILD_DIR/$NAME"
   else
     for candidate in \

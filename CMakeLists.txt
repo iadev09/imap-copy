@@ -22,6 +22,12 @@ set_target_properties(imap_copy PROPERTIES OUTPUT_NAME "imap-copy")
 target_include_directories(imap_copy PRIVATE include)
 target_link_libraries(imap_copy PRIVATE CURL::libcurl Threads::Threads)
 
+# Release-only optimizations.
+target_compile_options(imap_copy PRIVATE
+    $<$<CONFIG:Release>:-O2>
+    $<$<CONFIG:Release>:-pipe>
+)
+
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(imap_copy PRIVATE -pthread)
     target_link_options(imap_copy PRIVATE -pthread)
