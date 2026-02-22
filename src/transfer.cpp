@@ -76,7 +76,7 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
     std::atomic<size_t> deleted{0};
     std::atomic<size_t> failed{0};
     std::atomic<size_t> already_exists{0};
-    std::atomic<size_t> skipped_no_message_id{0};
+    std::atomic<size_t> no_message_id{0};
 
     size_t worker_count = std::thread::hardware_concurrency();
     if (worker_count == 0) {
@@ -108,16 +108,16 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
 
             const std::string message_id = meta->message_id;
             if (message_id.empty()) {
-                std::cerr << "[WARN] UID=" << uid << " has no Message-ID. Skipping copy"
+                std::cerr << "[WARN] UID=" << uid
+                          << " has no Message-ID. Copying without Message-ID dedupe"
                           << " [from=\"" << (meta->from.empty() ? "-" : meta->from)
                           << "\", subject=\"" << (meta->subject.empty() ? "-" : meta->subject)
                           << "\", date=\"" << (meta->date.empty() ? "-" : meta->date) << "\"]\n";
-                skipped_no_message_id.fetch_add(1);
-                continue;
+                no_message_id.fetch_add(1);
             }
 
             bool message_id_reserved = false;
-            {
+            if (!message_id.empty()) {
                 std::scoped_lock lock(message_id_mutex);
                 if (dest_message_ids.find(message_id) != dest_message_ids.end() ||
                     pending_message_ids.find(message_id) != pending_message_ids.end()) {
@@ -200,7 +200,7 @@ TransferStats transferMessages(const AppConfig &cfg, bool delete_after_copy) {
     stats.deleted = deleted.load();
     stats.failed = failed.load();
     stats.already_exists = already_exists.load();
-    stats.skipped_no_message_id = skipped_no_message_id.load();
+    stats.no_message_id = no_message_id.load();
 
     return stats;
 }

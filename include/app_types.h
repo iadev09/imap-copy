@@ -28,13 +28,12 @@ struct AppConfig {
 struct CliOptions {
     std::string config_path;
     bool delete_after_copy = false;
-    bool strict_message_id = false;
 };
 
 struct TransferStats {
     size_t source_total = 0;
     size_t already_exists = 0;
-    size_t skipped_no_message_id = 0;
+    size_t no_message_id = 0;
     size_t copied = 0;
     size_t deleted = 0;
     size_t failed = 0;
