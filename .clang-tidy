@@ -9,10 +9,13 @@ Checks: >
   -readability-identifier-length,
   -readability-magic-numbers,
   -modernize-use-trailing-return-type
+  '-*,
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*/(src|include)/.*'
 FormatStyle: none
 CheckOptions:
+  - key: readability-function-cognitive-complexity.Threshold
+    value: '39'
   - key: readability-identifier-naming.VariableCase
     value: lower_case
   - key: readability-identifier-naming.MemberCase

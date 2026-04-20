@@ -16,11 +16,6 @@ add_executable(imap_copy
         src/client.cpp
         src/cache.cpp
         src/transfer.cpp
-        include/types.h
-        include/config.h
-        include/client.h
-        include/cache.h
-        include/transfer.h
 )
 
 set_target_properties(imap_copy PROPERTIES OUTPUT_NAME "imap-copy")

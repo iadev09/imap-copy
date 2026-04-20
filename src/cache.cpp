@@ -20,7 +20,7 @@
 
 namespace imap_copy {
     namespace {
-        std::string trim(const std::string &value) {
+        auto trim(const std::string &value) -> std::string {
             size_t first = 0;
             while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])) != 0) {
                 ++first;
@@ -35,7 +35,7 @@ namespace imap_copy {
             return value.substr(first, last - first + 1);
         }
 
-        uint64_t fnv1a64(const std::string &input) {
+        auto fnv1a64(const std::string &input) -> uint64_t {
             uint64_t hash = 1469598103934665603ULL;
             for (unsigned char ch: input) {
                 hash ^= static_cast<uint64_t>(ch);
@@ -44,22 +44,20 @@ namespace imap_copy {
             return hash;
         }
 
-        std::string toHex64(uint64_t value) {
+        auto toHex64(uint64_t value) -> std::string {
             std::ostringstream oss;
             oss << std::hex << std::nouppercase << std::setfill('0') << std::setw(16) << value;
             return oss.str();
         }
 
-        bool isHashKey(const std::string &value) {
+        auto isHashKey(const std::string &value) -> bool {
             if (value.size() != 16) {
                 return false;
             }
-            return std::ranges::all_of(value, [](const unsigned char ch) {
-                return std::isxdigit(ch) != 0;
-            });
+            return std::ranges::all_of(value, [](const unsigned char ch) { return std::isxdigit(ch) != 0; });
         }
 
-        uint64_t parseHex64(const std::string &value) {
+        auto parseHex64(const std::string &value) -> uint64_t {
             size_t parsed = 0;
             const uint64_t result = std::stoull(value, &parsed, 16);
             if (parsed != value.size()) {
@@ -79,8 +77,8 @@ namespace imap_copy {
         std::error_code ec;
         std::filesystem::create_directories(base_dir, ec);
         if (ec) {
-            throw std::runtime_error("Failed to create cache directory: " + base_dir.string() +
-                                     " (" + ec.message() + ")");
+            throw std::runtime_error("Failed to create cache directory: " + base_dir.string() + " (" + ec.message() +
+                                     ")");
         }
 
         key_seed_ = cfg.from.user + "|" + cfg.to.user + "|";
@@ -90,8 +88,8 @@ namespace imap_copy {
 
         lock_fd_ = ::open(lock_path_.c_str(), O_CREAT | O_RDWR, 0600);
         if (lock_fd_ < 0) {
-            throw std::runtime_error("Failed to open cache lock file: " + lock_path_.string() +
-                                     " (" + std::strerror(errno) + ")");
+            throw std::runtime_error("Failed to open cache lock file: " + lock_path_.string() + " (" +
+                                     std::strerror(errno) + ")");
         }
         if (::flock(lock_fd_, LOCK_EX | LOCK_NB) != 0) {
             const std::string err = std::strerror(errno);
@@ -124,16 +122,16 @@ namespace imap_copy {
         }
     }
 
-    uint64_t TransferCache::makeUidKey(const uint64_t source_uid) const {
+    auto TransferCache::makeUidKey(const uint64_t source_uid) const -> uint64_t {
         return fnv1a64(key_seed_ + std::to_string(source_uid));
     }
 
-    bool TransferCache::contains(const uint64_t key) const {
+    auto TransferCache::contains(const uint64_t key) const -> bool {
         std::scoped_lock lock(mutex_);
         return keys_.contains(key);
     }
 
-    bool TransferCache::insert(const uint64_t key) {
+    auto TransferCache::insert(const uint64_t key) -> bool {
         std::scoped_lock lock(mutex_);
         const auto [_, inserted] = keys_.insert(key);
         if (inserted) {
@@ -143,7 +141,8 @@ namespace imap_copy {
     }
 
     void TransferCache::save() {
-        std::vector<uint64_t> snapshot; {
+        std::vector<uint64_t> snapshot;
+        {
             std::scoped_lock lock(mutex_);
             if (!dirty_) {
                 return;
@@ -175,17 +174,17 @@ namespace imap_copy {
         std::filesystem::rename(tmp_path, cache_path_, ec);
         if (ec) {
             std::filesystem::remove(tmp_path, ec);
-            throw std::runtime_error("Failed to publish cache file: " + cache_path_.string() +
-                                     " (" + ec.message() + ")");
+            throw std::runtime_error("Failed to publish cache file: " + cache_path_.string() + " (" + ec.message() +
+                                     ")");
         }
     }
 
-    size_t TransferCache::size() const {
+    auto TransferCache::size() const -> size_t {
         std::scoped_lock lock(mutex_);
         return keys_.size();
     }
 
-    const std::filesystem::path &TransferCache::cachePath() const {
+    auto TransferCache::cachePath() const -> const std::filesystem::path & {
         return cache_path_;
     }
 } // namespace imap_copy

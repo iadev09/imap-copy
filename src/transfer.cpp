@@ -12,7 +12,7 @@
 
 namespace imap_copy {
     namespace {
-        bool isDebugLoggingEnabled() {
+        auto isDebugLoggingEnabled() -> bool {
             const char *value = std::getenv("IMAP_COPY_LOG_LEVEL");
             if (value == nullptr || *value == '\0') {
                 return false;
@@ -22,13 +22,18 @@ namespace imap_copy {
                    level == "1" || level == "true" || level == "TRUE";
         }
 
-        size_t configuredWorkerCount(size_t source_count, size_t requested_worker_count) {
-            constexpr size_t kMaxWorkers = 10;
-            const size_t worker_count = std::max<size_t>(1, std::min(requested_worker_count, kMaxWorkers));
-            if (source_count == 0) {
+        struct WorkerCountParams {
+            size_t source_count;
+            size_t requested_worker_count;
+        };
+
+        auto configuredWorkerCount(WorkerCountParams params) -> size_t {
+            constexpr size_t max_workers = 10;
+            const size_t worker_count = std::max<size_t>(1, std::min(params.requested_worker_count, max_workers));
+            if (params.source_count == 0) {
                 return 1;
             }
-            return std::max<size_t>(1, std::min(worker_count, source_count));
+            return std::max<size_t>(1, std::min(worker_count, params.source_count));
         }
     } // namespace
 
@@ -65,7 +70,7 @@ namespace imap_copy {
         std::atomic<size_t> failed{0};
         std::atomic<size_t> already_exists{0};
 
-        const size_t worker_count = configuredWorkerCount(source_uids.size(), requested_worker_count);
+        const size_t worker_count = configuredWorkerCount({.source_count=source_uids.size(), .requested_worker_count=requested_worker_count});
         std::cout << "[INFO] Parallel copy workers: " << worker_count << "\n";
 
         // NOLINTNEXTLINE(readability-function-cognitive-complexity)

@@ -16,15 +16,15 @@ public:
     ~TransferCache();
 
     TransferCache(const TransferCache &) = delete;
-    TransferCache &operator=(const TransferCache &) = delete;
+    auto operator=(const TransferCache &) -> TransferCache & = delete;
 
-    [[nodiscard]] uint64_t makeUidKey(uint64_t source_uid) const;
-    [[nodiscard]] bool contains(uint64_t key) const;
-    bool insert(uint64_t key);
+    [[nodiscard]] auto makeUidKey(uint64_t source_uid) const -> uint64_t;
+    [[nodiscard]] auto contains(uint64_t key) const -> bool;
+    auto insert(uint64_t key) -> bool;
     void save();
 
-    [[nodiscard]] size_t size() const;
-    [[nodiscard]] const std::filesystem::path &cachePath() const;
+    [[nodiscard]] auto size() const -> size_t;
+    [[nodiscard]] auto cachePath() const -> const std::filesystem::path &;
 
 private:
     std::string key_seed_;

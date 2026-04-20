@@ -8,7 +8,7 @@
 #include "config.h"
 #include "transfer.h"
 
-int main(int argc, char **argv) {
+auto main(int argc, char **argv) -> int {
     using namespace imap_copy;
 
     try {

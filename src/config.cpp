@@ -10,7 +10,7 @@
 namespace imap_copy {
 namespace {
 
-std::string trim(const std::string &value) {
+auto trim(const std::string &value) -> std::string {
     size_t first = 0;
     while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])) != 0) {
         ++first;
@@ -28,7 +28,7 @@ std::string trim(const std::string &value) {
     return value.substr(first, last - first + 1);
 }
 
-bool iequals(const std::string &a, const std::string &b) {
+auto iequals(const std::string &a, const std::string &b) -> bool {
     if (a.size() != b.size()) {
         return false;
     }
@@ -42,7 +42,7 @@ bool iequals(const std::string &a, const std::string &b) {
     return true;
 }
 
-std::string stripComment(const std::string &line) {
+auto stripComment(const std::string &line) -> std::string {
     bool in_single = false;
     bool in_double = false;
 
@@ -60,7 +60,7 @@ std::string stripComment(const std::string &line) {
     return line;
 }
 
-std::string unquoteTomlString(const std::string &raw) {
+auto unquoteTomlString(const std::string &raw) -> std::string {
     const std::string value = trim(raw);
     if (value.size() < 2) {
         throw std::runtime_error("Invalid TOML string: " + raw);
@@ -105,7 +105,7 @@ std::string unquoteTomlString(const std::string &raw) {
     return result;
 }
 
-bool parseTomlBool(const std::string &raw) {
+auto parseTomlBool(const std::string &raw) -> bool {
     const std::string value = trim(raw);
     if (iequals(value, "true")) {
         return true;
@@ -117,7 +117,7 @@ bool parseTomlBool(const std::string &raw) {
     throw std::runtime_error("Expected boolean value: " + raw);
 }
 
-int parseTomlInt(const std::string &raw) {
+auto parseTomlInt(const std::string &raw) -> int {
     const std::string value = trim(raw);
     try {
         size_t used = 0;
@@ -131,7 +131,7 @@ int parseTomlInt(const std::string &raw) {
     }
 }
 
-size_t parseWorkerCount(const std::string &raw) {
+auto parseWorkerCount(const std::string &raw) -> size_t {
     try {
         size_t used = 0;
         const unsigned long parsed = std::stoul(raw, &used);
@@ -152,7 +152,7 @@ void validateConfig(const AppConfig &cfg) {
         throw std::runtime_error("[server].port must be in range 1-65535");
     }
 
-    auto validateMailbox = [](const MailboxConfig &mailbox, const char *name) {
+    auto validate_mailbox = [](const MailboxConfig &mailbox, const char *name) {
         if (mailbox.user.empty()) {
             throw std::runtime_error(std::string("[") + name + "].user is required");
         }
@@ -164,13 +164,13 @@ void validateConfig(const AppConfig &cfg) {
         }
     };
 
-    validateMailbox(cfg.from, "from");
-    validateMailbox(cfg.to, "to");
+    validate_mailbox(cfg.from, "from");
+    validate_mailbox(cfg.to, "to");
 }
 
 }  // namespace
 
-AppConfig parseConfig(const std::string &path) {
+auto parseConfig(const std::string &path) -> AppConfig {
     std::ifstream in(path);
     if (!in.is_open()) {
         throw std::runtime_error("Failed to open config file: " + path);
@@ -234,7 +234,7 @@ AppConfig parseConfig(const std::string &path) {
     return cfg;
 }
 
-CliOptions parseArgs(int argc, char **argv) {
+auto parseArgs(int argc, char **argv) -> CliOptions {
     CliOptions opts;
 
     for (int i = 1; i < argc; ++i) {

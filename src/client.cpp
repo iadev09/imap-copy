@@ -22,14 +22,14 @@ namespace imap_copy {
             size_t offset = 0;
         };
 
-        size_t writeToString(void *ptr, size_t size, size_t nmemb, void *userdata) {
+        auto writeToString(void *ptr, size_t size, size_t nmemb, void *userdata) -> size_t {
             const size_t total = size * nmemb;
             auto *buffer = static_cast<Buffer *>(userdata);
             buffer->data.append(static_cast<char *>(ptr), total);
             return total;
         }
 
-        size_t readFromBuffer(char *dest, size_t size, size_t nmemb, void *userdata) {
+        auto readFromBuffer(char *dest, size_t size, size_t nmemb, void *userdata) -> size_t {
             const size_t max_write = size * nmemb;
             auto *payload = static_cast<UploadPayload *>(userdata);
             if (payload->bytes == nullptr || payload->offset >= payload->bytes->size()) {
@@ -43,7 +43,7 @@ namespace imap_copy {
             return to_copy;
         }
 
-        std::string trim(const std::string &value) {
+        auto trim(const std::string &value) -> std::string {
             size_t first = 0;
             while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])) != 0) {
                 ++first;
@@ -61,15 +61,13 @@ namespace imap_copy {
             return value.substr(first, last - first + 1);
         }
 
-        std::string toLower(std::string value) {
+        auto toLower(std::string value) -> std::string {
             std::ranges::transform(value, value.begin(),
-                                   [](unsigned char c) {
-                                       return static_cast<char>(std::tolower(c));
-                                   });
+                                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
             return value;
         }
 
-        std::string normalizedMessageId(std::string message_id) {
+        auto normalizedMessageId(std::string message_id) -> std::string {
             message_id = trim(message_id);
             if (message_id.empty()) {
                 return message_id;
@@ -80,7 +78,7 @@ namespace imap_copy {
             return message_id;
         }
 
-        bool isDebugLoggingEnabled() {
+        auto isDebugLoggingEnabled() -> bool {
             static const bool enabled = []() {
                 const char *value = std::getenv("IMAP_COPY_LOG_LEVEL");
                 if (value == nullptr || *value == '\0') {
@@ -92,7 +90,7 @@ namespace imap_copy {
             return enabled;
         }
 
-        std::string logPreview(const std::string &value, size_t max_len = 120) {
+        auto logPreview(const std::string &value, size_t max_len = 120) -> std::string {
             if (value.size() <= max_len) {
                 return value;
             }
@@ -102,12 +100,12 @@ namespace imap_copy {
             return value.substr(0, max_len - 3) + "...";
         }
 
-        std::string baseUrl(const ServerConfig &server) {
+        auto baseUrl(const ServerConfig &server) -> std::string {
             const std::string scheme = server.tls ? "imaps" : "imap";
             return scheme + "://" + server.host + ":" + std::to_string(server.port);
         }
 
-        std::string escapePathSegment(const std::string &segment) {
+        auto escapePathSegment(const std::string &segment) -> std::string {
             CURL *curl = curl_easy_init();
             if (curl == nullptr) {
                 throw std::runtime_error("curl init error (escape)");
@@ -143,7 +141,7 @@ namespace imap_copy {
             curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, server.verify_tls ? 2L : 0L);
         }
 
-        std::vector<uint64_t> parseSearchResult(const std::string &response) {
+        auto parseSearchResult(const std::string &response) -> std::vector<uint64_t> {
             std::vector<uint64_t> result;
             std::istringstream in(response);
             std::string line;
@@ -162,7 +160,7 @@ namespace imap_copy {
             return result;
         }
 
-        std::optional<MessageMeta> parseFetchMeta(const std::string &response) {
+        auto parseFetchMeta(const std::string &response) -> std::optional<MessageMeta> {
             MessageMeta meta;
             meta.seen = response.find("\\Seen") != std::string::npos;
 
@@ -189,7 +187,7 @@ namespace imap_copy {
             return meta;
         }
 
-        std::string escapeImapQuoted(const std::string &value) {
+        auto escapeImapQuoted(const std::string &value) -> std::string {
             std::string out;
             out.reserve(value.size() + 8);
             for (char c: value) {
@@ -201,7 +199,7 @@ namespace imap_copy {
             return out;
         }
 
-        std::string curlConnectionInfo(CURL *curl) {
+        auto curlConnectionInfo(CURL *curl) -> std::string {
             const char *primary_ip = nullptr;
             long primary_port = 0;
             const char *local_ip = nullptr;
@@ -228,12 +226,11 @@ namespace imap_copy {
         }
     } // namespace
 
-    ImapClient::ImapClient(ServerConfig server) :
-        server_(std::move(server)) {
+    ImapClient::ImapClient(ServerConfig server) : server_(std::move(server)) {
     }
 
-    std::string ImapClient::runImapCommand(const MailboxConfig &account, const std::string &folder,
-                                           const std::string &command, long timeout_seconds) const {
+    auto ImapClient::runImapCommand(const MailboxConfig &account, const std::string &folder, const std::string &command,
+                                    long timeout_seconds) const -> std::string {
         CURL *curl = curl_easy_init();
         if (curl == nullptr) {
             throw std::runtime_error("curl init error");
@@ -255,36 +252,36 @@ namespace imap_copy {
             curl_easy_cleanup(curl);
             throw std::runtime_error(
                     "IMAP command failed"
-                    " [host=" + server_.host +
-                    ", user=" + account.user +
-                    ", folder=" + folder +
-                    ", command=\"" + command + "\"]"
-                    " (timeout_s=" + std::to_string(timeout_seconds) + ", " + err + ")" + connection_info);
+                    " [host=" +
+                    server_.host + ", user=" + account.user + ", folder=" + folder + ", command=\"" + command +
+                    "\"]"
+                    " (timeout_s=" +
+                    std::to_string(timeout_seconds) + ", " + err + ")" + connection_info);
         }
 
         curl_easy_cleanup(curl);
         return response.data;
     }
 
-    std::vector<uint64_t> ImapClient::listAllUids(const MailboxConfig &account, const std::string &folder) const {
+    auto ImapClient::listAllUids(const MailboxConfig &account, const std::string &folder) const
+            -> std::vector<uint64_t> {
         const std::string response = runImapCommand(account, folder, "UID SEARCH ALL", 120);
         return parseSearchResult(response);
     }
 
-    std::optional<MessageMeta> ImapClient::fetchMetaByUid(const MailboxConfig &account, const std::string &folder,
-                                                          uint64_t uid) const {
+    auto ImapClient::fetchMetaByUid(const MailboxConfig &account, const std::string &folder, uint64_t uid) const
+            -> std::optional<MessageMeta> {
         try {
-            const std::string response = runImapCommand(
-                    account, folder,
-                    "UID FETCH " + std::to_string(uid) +
-                    " (FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM DATE SUBJECT)])",
-                    30);
+            const std::string response =
+                    runImapCommand(account, folder,
+                                   "UID FETCH " + std::to_string(uid) +
+                                           " (FLAGS BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM DATE SUBJECT)])",
+                                   30);
             MessageMeta meta = parseFetchMeta(response).value_or(MessageMeta{});
             if (meta.message_id.empty()) {
                 // Fallback for servers that do not reliably return HEADER.FIELDS subset.
-                const std::string full_header_response =
-                        runImapCommand(account, folder,
-                                       "UID FETCH " + std::to_string(uid) + " (FLAGS BODY.PEEK[HEADER])", 30);
+                const std::string full_header_response = runImapCommand(
+                        account, folder, "UID FETCH " + std::to_string(uid) + " (FLAGS BODY.PEEK[HEADER])", 30);
                 const MessageMeta fallback_meta = parseFetchMeta(full_header_response).value_or(MessageMeta{});
 
                 if (!fallback_meta.message_id.empty()) {
@@ -309,8 +306,8 @@ namespace imap_copy {
         }
     }
 
-    std::vector<char> ImapClient::downloadMessageByUid(const MailboxConfig &account, const std::string &folder,
-                                                       uint64_t uid) const {
+    auto ImapClient::downloadMessageByUid(const MailboxConfig &account, const std::string &folder, uint64_t uid) const
+            -> std::vector<char> {
         CURL *curl = curl_easy_init();
         if (curl == nullptr) {
             throw std::runtime_error("curl init error");
@@ -336,8 +333,8 @@ namespace imap_copy {
         return {response.data.begin(), response.data.end()};
     }
 
-    bool ImapClient::appendMessage(const MailboxConfig &account, const std::string &folder,
-                                   const std::vector<char> &message) const {
+    auto ImapClient::appendMessage(const MailboxConfig &account, const std::string &folder,
+                                   const std::vector<char> &message) const -> bool {
         CURL *curl = curl_easy_init();
         if (curl == nullptr) {
             throw std::runtime_error("curl init error");
@@ -369,7 +366,7 @@ namespace imap_copy {
         return true;
     }
 
-    bool ImapClient::deleteSourceMessage(const MailboxConfig &source, uint64_t uid) const {
+    auto ImapClient::deleteSourceMessage(const MailboxConfig &source, uint64_t uid) const -> bool {
         try {
             (void) runImapCommand(source, source.folder,
                                   "UID STORE " + std::to_string(uid) + " +FLAGS.SILENT (\\Deleted)");
@@ -377,13 +374,13 @@ namespace imap_copy {
             return true;
         } catch (const std::exception &ex) {
             std::cerr << "[WARN] UID=" << uid
-                    << " was copied but could not be deleted from source (UID EXPUNGE may not be supported): "
-                    << ex.what() << "\n";
+                      << " was copied but could not be deleted from source (UID EXPUNGE may not be supported): "
+                      << ex.what() << "\n";
             return false;
         }
     }
 
-    bool ImapClient::clearSeenByUid(const MailboxConfig &account, uint64_t uid) const {
+    auto ImapClient::clearSeenByUid(const MailboxConfig &account, uint64_t uid) const -> bool {
         try {
             (void) runImapCommand(account, account.folder,
                                   "UID STORE " + std::to_string(uid) + " -FLAGS.SILENT (\\Seen)");
@@ -394,7 +391,7 @@ namespace imap_copy {
         }
     }
 
-    bool ImapClient::clearSeenByMessageId(const MailboxConfig &account, const std::string &message_id) const {
+    auto ImapClient::clearSeenByMessageId(const MailboxConfig &account, const std::string &message_id) const -> bool {
         if (message_id.empty()) {
             return false;
         }
@@ -413,8 +410,7 @@ namespace imap_copy {
 
                 bool any_ok = false;
                 for (uint64_t uid: uids) {
-                    const std::string store_command =
-                            "UID STORE " + std::to_string(uid) + " -FLAGS.SILENT (\\Seen)";
+                    const std::string store_command = "UID STORE " + std::to_string(uid) + " -FLAGS.SILENT (\\Seen)";
                     (void) runImapCommand(account, account.folder, store_command);
                     any_ok = true;
                 }
@@ -429,9 +425,9 @@ namespace imap_copy {
         }
     }
 
-    bool ImapClient::destinationHasMessageId(const MailboxConfig &dest,
+    auto ImapClient::destinationHasMessageId(const MailboxConfig &dest,
                                              const std::unordered_set<std::string> &known_ids,
-                                             const std::string &message_id) const {
+                                             const std::string &message_id) const -> bool {
         if (message_id.empty()) {
             return false;
         }
