@@ -1,15 +1,7 @@
-#include "cache.h"
-
-#include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
-
 #include <algorithm>
-#include <cctype>
 #include <cerrno>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -17,6 +9,8 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#include "cache.h"
 
 namespace imap_copy {
     namespace {
@@ -54,7 +48,9 @@ namespace imap_copy {
             if (value.size() != 16) {
                 return false;
             }
-            return std::ranges::all_of(value, [](const unsigned char ch) { return std::isxdigit(ch) != 0; });
+            return std::ranges::all_of(value, [](const unsigned char ch) {
+                return std::isxdigit(ch) != 0;
+            });
         }
 
         auto parseHex64(const std::string &value) -> uint64_t {
@@ -141,8 +137,7 @@ namespace imap_copy {
     }
 
     void TransferCache::save() {
-        std::vector<uint64_t> snapshot;
-        {
+        std::vector<uint64_t> snapshot; {
             std::scoped_lock lock(mutex_);
             if (!dirty_) {
                 return;

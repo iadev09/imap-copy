@@ -1,11 +1,8 @@
 #pragma once
 
-#include <cstddef>
-
 #include <string>
 
 namespace imap_copy {
-
     struct ServerConfig {
         std::string host;
         int port = 993;
@@ -48,5 +45,4 @@ namespace imap_copy {
         std::string subject;
         bool seen = false;
     };
-
 } // namespace imap_copy

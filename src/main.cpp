@@ -1,5 +1,4 @@
 #include <curl/curl.h>
-
 #include <chrono>
 #include <iomanip>
 #include <iostream>
@@ -21,7 +20,9 @@ auto main(int argc, char **argv) -> int {
         }
 
         struct CurlGlobalCleanupGuard {
-            ~CurlGlobalCleanupGuard() { curl_global_cleanup(); }
+            ~CurlGlobalCleanupGuard() {
+                curl_global_cleanup();
+            }
         } cleanup_guard;
 
         const TransferStats stats = transferMessages(cfg, opts.delete_after_copy, opts.worker_count);
